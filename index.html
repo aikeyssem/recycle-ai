@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>분리배출 AI 감독기</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">♻️</div>
+    <h1>분리배출 AI 감독기<small>내가 먼저 판단하고, 감독기가 점검해요</small></h1>
+    <span class="sp"></span>
+    <span class="pill" id="who" hidden></span>
+    <button class="btn ghost" id="homeBtn" hidden>🏠 처음으로</button>
+  </header>
+  <div id="modelBanner"></div>
+
+  <!-- 1. 번호 -->
+  <section class="screen on" id="s-num">
+    <div class="hero"><div class="big-ic">🕵️</div>
+      <div><h2>내 번호를 눌러요</h2><p class="sub" style="margin:0">감독을 받을 사람의 번호예요. <b>내 번호만</b> 눌러요!</p></div></div>
+    <div class="grid nums" id="nums"></div>
+    <div class="row" style="max-width:520px"><button class="btn soft" id="guestBtn">👩‍🏫 체험하기 (기록이 남지 않아요)</button></div>
+    <div class="footer">
+      <a href="teacher.html">👩‍🏫 교사용</a> · <a href="collect.html">📷 사진 모으기</a> ·
+      카메라 <select id="camSel"><option value="">자동(뒷면 우선)</option></select>
+    </div>
+  </section>
+
+  <!-- 2. 무엇인가요 -->
+  <section class="screen" id="s-item">
+    <div class="steps" data-at="0"></div>
+    <h2>무엇을 버리나요?</h2>
+    <p class="sub">버리려는 물건을 골라요.</p>
+    <div class="grid choices" id="items"></div>
+  </section>
+
+  <!-- 3. 무엇을 했나요 -->
+  <section class="screen" id="s-check">
+    <div class="steps" data-at="1"></div>
+    <h2 id="checkTitle">무엇을 했나요?</h2>
+    <p class="sub">솔직하게 골라요. 감독기가 사진으로 점검해요.</p>
+    <div id="checklist"></div>
+    <div class="row"><button class="btn primary" id="checkNext" disabled>다음 ▶</button></div>
+  </section>
+
+  <!-- 4. 어디에 버릴까요 -->
+  <section class="screen" id="s-box">
+    <div class="steps" data-at="2"></div>
+    <h2>어디에 넣을 건가요?</h2>
+    <p class="sub">섞지 않기! 알맞은 곳을 골라요.</p>
+    <div class="grid boxes" style="margin-top:28px">
+      <button class="boxbtn paper" data-box="paper"><span class="em">📄</span>종이 상자<small>종이류</small></button>
+      <button class="boxbtn plastic" data-box="plastic"><span class="em">🧴</span>플라스틱 상자<small>플라스틱·비닐류</small></button>
+      <button class="boxbtn general" data-box="general"><span class="em">🗑️</span>일반쓰레기<small>재활용 안 되는 것</small></button>
+    </div>
+  </section>
+
+  <!-- 5. 사진 -->
+  <section class="screen" id="s-cam">
+    <div class="steps" data-at="3"></div>
+    <h2 id="camTitle">감독기에게 보여 줘요</h2>
+    <div class="cam">
+      <video id="video" playsinline muted></video>
+      <img id="shot" hidden alt="찍은 사진">
+      <div class="corners" id="corners"><i></i></div>
+      <div class="guide" id="guide"></div>
+      <div class="tagshot" id="tagshot" hidden></div>
+    </div>
+    <div class="shutter" id="camBtns">
+      <label class="btn ghost upload">🖼️ 사진 올리기<input type="file" id="upload" accept="image/*" hidden></label>
+      <button class="snap" id="snap" aria-label="찍기">📸</button>
+      <span style="width:130px" class="note">가운데 버튼을 눌러 찍어요</span>
+    </div>
+    <div class="row" id="shotBtns" hidden>
+      <button class="btn" id="retake">↺ 다시 찍기</button>
+      <button class="btn primary" id="useShot">이 사진으로 할래요 ✔</button>
+    </div>
+  </section>
+
+  <!-- 6. 결과 -->
+  <section class="screen" id="s-result">
+    <div class="steps" data-at="4"></div>
+    <div id="checking" class="card" style="text-align:center"><div class="spinner"></div><p style="font-size:22px;font-weight:850">감독기가 점검하고 있어요…</p></div>
+    <div id="resultBox" hidden>
+      <div class="verdict" id="verdict"></div>
+      <div id="checksList"></div>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="row" id="resultBtns"></div>
+    </div>
+  </section>
+
+  <!-- 7. 끝 -->
+  <section class="screen" id="s-done">
+    <div class="card donecard">
+      <div class="big" id="doneIcon">🎉</div>
+      <h2 id="doneTitle">통과!</h2>
+      <div id="doneMsg"></div>
+      <div class="stamps" id="stamps"></div>
+      <div class="stat" id="doneStat"></div>
+      <div class="row" style="max-width:420px;margin:20px auto 0"><button class="btn primary" id="doneOk">처음으로</button></div>
+    </div>
+  </section>
+</div>
+
+<script src="lib/tf.min.js"></script>
+<script src="lib/teachablemachine-image.min.js"></script>
+<script src="js/common.js"></script>
+<script src="js/supervisor.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const save = rec => { if (rec.num !== 'guest') Store.upsert(rec); };
+const S = { num: null, item: null, claims: {}, box: null, photos: {}, photoQueue: [], rec: null, uploaded: false };
+let doneTimer = null;
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(e => e.classList.toggle('on', e.id === id));
+  $('#homeBtn').hidden = id === 's-num';
+  const st = document.querySelector('#' + id + ' .steps'); if (st) steps(st, +st.dataset.at);
+  window.scrollTo(0, 0);
+}
+function steps(el, at) {
+  const names = [['❓', '무엇?'], ['✋', '한 일'], ['🗑️', '버릴 곳'], ['📷', '사진'], ['🕵️', '감독']];
+  el.innerHTML = names.map(([ic, n], i) => (i ? `<div class="bar ${i <= at ? 'done' : ''}"></div>` : '') +
+    `<div class="st ${i < at ? 'done' : i === at ? 'on' : ''}"><i>${i < at ? '✔' : ic}</i><span>${n}</span></div>`).join('');
+}
+function goHome() {
+  clearTimeout(doneTimer);
+  Object.assign(S, { num: null, item: null, claims: {}, box: null, photos: {}, photoQueue: [], rec: null, uploaded: false });
+  $('#who').hidden = true;
+  show('s-num');
+}
+$('#homeBtn').onclick = goHome;
+$('#doneOk').onclick = goHome;
+
+// ---- 모델 미리 불러오기 ----
+(async () => {
+  const keys = Object.keys(APP.MODELS);
+  const res = await Promise.allSettled(keys.map(k => loadModel(k)));
+  const bad = [];
+  res.forEach((r, i) => {
+    const m = APP.MODELS[keys[i]];
+    if (r.status === 'rejected') bad.push(`${m.name}: 모델 파일이 없어요 (models/${m.dir}/)`);
+    else if (!r.value._ok) bad.push(`${m.name}: 클래스 이름이 달라요. 필요: ${m.classes.join(', ')} / 지금: ${r.value._labels.join(', ')}`);
+  });
+  if (bad.length) $('#modelBanner').innerHTML = `<div class="banner err"><b>선생님 확인 필요</b><br>${bad.join('<br>')}</div>`;
+})();
+
+// ---- 1. 번호 ----
+$('#nums').innerHTML = APP.STUDENTS.map((n, i) => (i && n > 50 && APP.STUDENTS[i - 1] < 50 ? '<div class="gap"></div>' : '') + `<button data-n="${n}">${n}</button>`).join('');
+$('#guestBtn').onclick = () => startAs('guest');
+$('#nums').onclick = e => { const b = e.target.closest('button'); if (b) startAs(+b.dataset.n); };
+function startAs(n) {
+  S.num = n;
+  $('#who').textContent = n === 'guest' ? '👩‍🏫 체험 중' : `🙋 ${n}번`; $('#who').hidden = false;
+  S.rec = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), num: S.num, ts: Date.now(),
+            item: null, attempts: [], firstPass: false, completed: false, disputed: false, verdict: null, uploaded: false };
+  $('#items').innerHTML = Object.entries(ITEMS).map(([k, v]) =>
+    `<button class="choice" data-k="${k}"><span class="em">${v.em}</span><b>${v.ko}</b><small>${v.hint}</small></button>`).join('');
+  show('s-item');
+}
+
+// ---- 2. 무엇 ----
+$('#items').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.item = b.dataset.k; S.rec.item = S.item;
+  if (S.item === 'other') {
+    save(S.rec);
+    finish('🙋', '선생님께 물어봐요', '감독기는 아직 이 물건을 배우지 않았어요.<br>어디에 버릴지 선생님께 물어봐요.', null);
+    return;
+  }
+  startChecklist();
+};
+
+// ---- 3. 한 일 ----
+const Q_ICON = { emptied: '🫗', rinsed: '🚿', label: '🏷️', shaken: '👐', tape: '✂️' };
+function startChecklist() {
+  const it = ITEMS[S.item];
+  S.claims = {};
+  const seg = (k, a, b) => `<div class="seg" data-k="${k}"><button class="yes" data-v="${a[0]}">${a[1]}</button><button class="no" data-v="${b[0]}">${b[1]}</button></div>`;
+  const row = c => `<div class="qrow"><div class="q"><span class="qi">${Q_ICON[c.k] || '✔'}</span>${c.q}</div>${seg(c.k, ['1', '했어요 ✔'], ['0', '아직이요'])}</div>`;
+  const aiRows = it.checklist.filter(c => !c.self).map(row);
+  if (it.sizeQ) aiRows.push(`<div class="qrow"><div class="q"><span class="qi">✋</span>손바닥(손가락 빼고)과 비교하면?</div>${seg('size', ['big', '손바닥보다 커요'], ['small', '손바닥보다 작아요'])}</div>`);
+  const selfRows = it.checklist.filter(c => c.self).map(row);
+  let h = '';
+  if (aiRows.length) h += `<div class="group ai"><div class="gh">📷 사진으로 점검해요 <span class="tag">감독기가 확인</span></div>${aiRows.join('')}</div>`;
+  if (selfRows.length) h += `<div class="group self"><div class="gh">🙈 감독기는 볼 수 없어요 <span class="tag">양심 체크 · 스스로 약속</span></div>${selfRows.join('')}</div>`;
+  if (!h) h = `<div class="group ai"><div class="qrow"><div class="q"><span class="qi">👍</span>따로 할 일은 없어요. 다음으로 가요!</div></div></div>`;
+  $('#checkTitle').textContent = `${it.em} ${it.ko}: 무엇을 했나요?`;
+  $('#checklist').innerHTML = h;
+  updateCheckNext();
+  show('s-check');
+}
+$('#checklist').onclick = e => {
+  const b = e.target.closest('.seg button'); if (!b) return;
+  const seg = b.parentElement, k = seg.dataset.k;
+  seg.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b));
+  S.claims[k] = k === 'size' ? b.dataset.v : b.dataset.v === '1';
+  updateCheckNext();
+};
+function updateCheckNext() {
+  const it = ITEMS[S.item];
+  const need = it.checklist.map(c => c.k).concat(it.sizeQ ? ['size'] : []);
+  $('#checkNext').disabled = !need.every(k => k in S.claims);
+}
+$('#checkNext').onclick = () => show('s-box');
+
+// ---- 4. 버릴 곳 ----
+document.querySelectorAll('.boxbtn').forEach(b => b.onclick = () => {
+  S.box = b.dataset.box;
+  S.photos = {}; S.photoQueue = ITEMS[S.item].photos.slice();
+  nextPhoto();
+});
+
+// ---- 5. 사진 (촬영 또는 업로드) ----
+const video = $('#video'); let camReady = false;
+async function ensureCamera() {
+  if (camReady && video.srcObject && video.srcObject.active) return;
+  try { await startCamera(video, $('#camSel').value || undefined); camReady = true; }
+  catch (e) { $('#guide').textContent = '카메라를 켤 수 없어요. 🖼️ 사진 올리기를 쓰거나 선생님께 알려 주세요.'; }
+}
+$('#camSel').onchange = () => { camReady = false; };
+(async () => { try { (await listCameras()).forEach((d, i) => $('#camSel').insertAdjacentHTML('beforeend', `<option value="${d.deviceId}">${d.label || '카메라 ' + (i + 1)}</option>`)); } catch (e) {} })();
+
+let pending = null;
+function liveMode() {
+  $('#shot').hidden = true; video.hidden = false; $('#corners').hidden = false; $('#tagshot').hidden = true;
+  $('#camBtns').hidden = false; $('#shotBtns').hidden = true;
+}
+async function nextPhoto() {
+  const p = S.photoQueue[0];
+  $('#camTitle').textContent = p.k === 'palm' ? '✋ 손바닥 위에 올려서 한 장 더!' : `${ITEMS[S.item].em} 감독기에게 보여 줘요`;
+  $('#guide').textContent = p.guide;
+  liveMode();
+  show('s-cam');
+  ensureCamera();
+}
+function preview(canvas, tag) {
+  pending = canvas;
+  $('#shot').src = canvas.toDataURL('image/jpeg', 0.85);
+  $('#shot').hidden = false; video.hidden = true; $('#corners').hidden = true;
+  $('#tagshot').textContent = tag; $('#tagshot').hidden = false;
+  $('#camBtns').hidden = true; $('#shotBtns').hidden = false;
+}
+$('#snap').onclick = () => {
+  if (!video.videoWidth) return;
+  const full = document.createElement('canvas');
+  full.width = video.videoWidth; full.height = video.videoHeight;
+  full.getContext('2d').drawImage(video, 0, 0);
+  preview(full, '📸 찍은 사진');
+};
+$('#upload').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const img = await loadImageFile(f);
+  const full = document.createElement('canvas');
+  full.width = img.naturalWidth; full.height = img.naturalHeight;
+  full.getContext('2d').drawImage(img, 0, 0);
+  S.uploaded = true;
+  preview(full, '🖼️ 올린 사진');
+};
+$('#retake').onclick = liveMode;
+$('#useShot').onclick = () => {
+  const p = S.photoQueue.shift();
+  S.photos[p.k] = squishToCanvas(pending, 224);
+  if (S.photoQueue.length) nextPhoto(); else check();
+};
+
+// ---- 6. 감독 ----
+async function check() {
+  show('s-result');
+  $('#checking').hidden = false; $('#resultBox').hidden = true;
+  let ai;
+  try { ai = await runModels(S.item, S.photos); }
+  catch (e) {
+    $('#checking').innerHTML = `<div class="banner err">감독기 모델을 불러오지 못했어요. 선생님께 알려 주세요.<br><small>${e.message}</small></div>`;
+    return;
+  }
+  const r = evaluate(S.item, S.claims, S.box, ai);
+  S.rec.attempts.push({ ts: Date.now(), claims: { ...S.claims }, box: S.box, expected: r.expected, pass: r.pass, uploaded: S.uploaded,
+    ai: Object.fromEntries(Object.entries(ai).map(([k, v]) => [k, { label: v.label, prob: +v.prob.toFixed(3) }])),
+    checks: r.checks.map(c => ({ key: c.key, status: c.status })) });
+  S.rec.firstPass = S.rec.attempts[0].pass;
+  S.rec.uploaded = S.rec.uploaded || S.uploaded;
+  if (r.pass) S.rec.completed = true;
+  save(S.rec);
+  renderResult(r);
+}
+const ICON = { ok: '✅', warn: '⚠️', unsure: '❓', self: '🙈' };
+function renderResult(r) {
+  $('#checking').hidden = true; $('#resultBox').hidden = false;
+  const tries = S.rec.attempts.length;
+  const fixes = r.checks.filter(c => c.status === 'warn' || c.status === 'unsure').length;
+  $('#verdict').className = 'verdict ' + (r.pass ? 'pass' : 'fail');
+  $('#verdict').innerHTML = r.pass
+    ? `<div class="vi">🎉</div><b>${tries === 1 ? '한 번에 통과!' : '고쳐서 통과!'}</b><span>감독기 점검을 모두 통과했어요.</span>`
+    : `<div class="vi">🔍</div><b>다시 확인해 볼까요?</b><span>확인할 것이 ${fixes}개 있어요.</span>`;
+  const selfKeys = new Set(ITEMS[S.item].checklist.filter(c => c.self).map(c => c.k));
+  const card = c => {
+    const self = selfKeys.has(c.key);
+    const cls = self ? (c.status === 'self' ? 'self' : 'selfwarn') : c.status;
+    return `<div class="chk ${cls}"><div class="ic">${self && c.status === 'self' ? '🙈' : ICON[c.status]}</div>
+      <div><b>${c.title}</b><span>${c.msg}</span>${c.ai ? `<br><span class="ai">🤖 ${aiNote(c.ai.model, c.ai)}</span>` : ''}</div></div>`;
+  };
+  const aiPart = r.checks.filter(c => !selfKeys.has(c.key)), selfPart = r.checks.filter(c => selfKeys.has(c.key));
+  $('#checksList').innerHTML =
+    `<div class="sec">🤖 감독기 점검</div><div class="checks">${aiPart.map(card).join('')}</div>` +
+    (selfPart.length ? `<div class="sec self">🙈 감독기가 볼 수 없는 것 · 양심 체크</div><div class="checks">${selfPart.map(card).join('')}</div>` : '');
+  $('#thumbs').innerHTML = Object.values(S.photos).map(c => `<img src="${c.toDataURL('image/jpeg', 0.7)}" alt="">`).join('');
+  $('#resultBtns').innerHTML = r.pass
+    ? '<button class="btn primary" data-a="done">좋아요! 🎉</button>'
+    : '<button class="btn primary" data-a="retry">🔧 고치고 다시 하기</button><button class="btn soft" data-a="dispute">🙋 나는 맞다고 생각해요</button><button class="btn ghost" data-a="quit">그만할래요</button>';
+}
+$('#resultBtns').onclick = e => {
+  const a = e.target.closest('button')?.dataset.a; if (!a) return;
+  if (a === 'done') { const box = S.rec.attempts.at(-1).expected; finish('🎉', '통과! 잘했어요', null, box); }
+  if (a === 'retry') { S.uploaded = false; startChecklist(); }
+  if (a === 'dispute') {
+    S.rec.disputed = true;
+    S.rec.disputeThumbs = Object.fromEntries(Object.entries(S.photos).map(([k, c]) => [k, canvasToDataURL(c, 160)]));
+    save(S.rec);
+    finish('🙋', '선생님께 확인을 부탁했어요', '선생님이 사진을 보고 판정해 줄 거예요.<br>지금은 선생님께 보여 주거나, 알맞은 곳에 넣어요.', null);
+  }
+  if (a === 'quit') { save(S.rec); goHome(); }
+};
+
+// ---- 7. 끝 ----
+function myWeek() {
+  const recs = scoreRecords(Store.load());
+  const mine = recs.filter(r => r.num === S.num && r.ts >= weekStart(Date.now()));
+  const counted = mine.filter(r => r._counted);
+  return { stamps: mine.filter(r => r.completed).length, rate: counted.length ? counted.filter(r => r._firstPass).length / counted.length : null };
+}
+function finish(icon, title, msg, box) {
+  $('#doneIcon').textContent = icon; $('#doneTitle').textContent = title;
+  $('#doneMsg').innerHTML = box
+    ? `<div class="box-tip" style="background:var(--${box})">${BOXES[box].em} ${BOXES[box].ko}에 넣어요</div>`
+    : `<p style="font-size:19px">${msg}</p>`;
+  if (S.num === 'guest') {
+    $('#stamps').innerHTML = ''; $('#doneStat').innerHTML = '<span>체험 모드라서 기록은 남지 않아요</span>';
+    show('s-done'); doneTimer = setTimeout(goHome, 20000); return;
+  }
+  const w = myWeek();
+  $('#stamps').innerHTML = box ? Array.from({ length: Math.min(w.stamps, 20) }, () => '<span>⭐</span>').join('') : '';
+  $('#doneStat').innerHTML = `<span>${S.num}번</span><span>이번 주 도장 <b>${w.stamps}개</b></span><span>한 번에 통과율 <b>${pct(w.rate)}</b></span>`;
+  show('s-done');
+  doneTimer = setTimeout(goHome, 20000);
+}
+</script>
+</body>
+</html>

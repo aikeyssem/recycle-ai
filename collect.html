@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사진 모으기</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .setup label{display:flex;flex-direction:column;gap:4px;font-weight:800}
+  .setup select{font-size:17px}
+  .counts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .counts span{background:#fff;border-radius:10px;padding:6px 10px;font-weight:800;border:2px solid var(--line)}
+  .counts span.cur{border-color:var(--brand)}
+  .gallery figure{position:relative}
+  .gallery button{position:absolute;top:8px;right:8px;background:#fff;border-radius:50%;width:30px;height:30px;font-weight:900}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="logo">📷</div><h1>사진 모으기<small>감독기와 똑같이 정사각형으로 저장해요</small></h1><span class="sp"></span><a class="btn ghost" href="index.html">감독기</a></div>
+  <div class="banner">감독기와 <b>똑같은 방법</b>(화면 전체를 정사각형으로 눌러 맞추기)으로 저장돼요. 다 찍으면 <b>ZIP으로 저장</b>을 눌러 티처블 머신에 올려요. 사진은 ZIP으로 저장하기 전까지 이 화면에만 있어요(새로고침하면 사라져요).</div>
+  <div class="card">
+    <div class="setup">
+      <label>모둠 <select id="grp"></select></label>
+      <label>과제(모델) <select id="task"></select></label>
+      <label>클래스 <select id="cls"></select></label>
+      <label>묶음 <select id="set"><option value="1_학습용">학습용</option><option value="2_고정개발용">고정 개발용</option><option value="3_최종테스트용">최종 테스트용</option></select></label>
+      <label>물건 번호 <select id="obj"></select></label>
+    </div>
+    <p class="note">같은 물건은 같은 번호예요. 새 물건으로 바꾸면 번호를 하나 올려요. (물건 하나는 3~4장까지)</p>
+    <div class="counts" id="counts"></div>
+  </div>
+  <div class="cam" style="margin-top:12px"><video id="video" playsinline muted></video><div class="guide" id="guide">검정 판 앞에서, 물건 전체가 화면 가운데에 크게 보이게!</div></div>
+  <div class="row">
+    <button class="btn primary" id="snap" style="font-size:22px">📸 찍기</button>
+    <button class="btn" id="nextObj">➕ 다음 물건</button>
+    <button class="btn" id="zip">💾 ZIP으로 저장 (<span id="total">0</span>장)</button>
+  </div>
+  <p class="note">카메라 <select id="camSel"><option value="">자동(뒷면 우선)</option></select></p>
+  <h3>찍은 사진 (✕를 누르면 지워져요)</h3>
+  <div class="gallery" id="gal"></div>
+</div>
+<script src="lib/jszip.min.js"></script>
+<script src="js/common.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const SIZE = 640;
+const shots = []; // {id, grp, task, cls, set, obj, blob, url}
+$('#grp').innerHTML = [1,2,3,4,5,6].map(n => `<option value="${n}">${n}모둠</option>`).join('') + '<option value="T">선생님</option>';
+$('#task').innerHTML = Object.entries(APP.MODELS).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
+$('#obj').innerHTML = Array.from({ length: 30 }, (_, i) => `<option value="${i + 1}">물건 ${i + 1}</option>`).join('');
+function fillCls() { const m = APP.MODELS[$('#task').value]; $('#cls').innerHTML = m.classes.map(c => `<option value="${c}">${m.ko[c]} (${c})</option>`).join(''); counts(); }
+$('#task').onchange = fillCls; ['#cls', '#set', '#grp'].forEach(s => $(s).onchange = counts);
+fillCls();
+
+function counts() {
+  const m = APP.MODELS[$('#task').value], set = $('#set').value;
+  $('#counts').innerHTML = m.classes.map(c => {
+    const n = shots.filter(s => s.task === $('#task').value && s.cls === c && s.set === set).length;
+    return `<span class="${c === $('#cls').value ? 'cur' : ''}">${m.ko[c]}: ${n}장</span>`; }).join('');
+  $('#total').textContent = shots.length;
+}
+
+const video = $('#video');
+async function cam() { try { await startCamera(video, $('#camSel').value || undefined); } catch (e) { $('#guide').textContent = '카메라를 켤 수 없어요: ' + e.name; } }
+$('#camSel').onchange = cam;
+cam().then(async () => { (await listCameras()).forEach((d, i) => $('#camSel').insertAdjacentHTML('beforeend', `<option value="${d.deviceId}">${d.label || '카메라 ' + (i + 1)}</option>`)); });
+
+$('#snap').onclick = () => {
+  if (!video.videoWidth) return;
+  const c = squishToCanvas(video, SIZE);
+  c.toBlob(blob => {
+    const s = { id: Date.now() + Math.random(), grp: $('#grp').value, task: $('#task').value, cls: $('#cls').value, set: $('#set').value, obj: +$('#obj').value, blob, url: URL.createObjectURL(blob) };
+    shots.push(s); render(); counts();
+  }, 'image/jpeg', 0.9);
+  video.style.opacity = .3; setTimeout(() => video.style.opacity = 1, 120);
+};
+$('#nextObj').onclick = () => { const o = $('#obj'); if (o.selectedIndex < o.options.length - 1) o.selectedIndex++; };
+function render() {
+  $('#gal').innerHTML = shots.slice().reverse().map(s => `<figure><img src="${s.url}"><button data-id="${s.id}">✕</button><div>${APP.MODELS[s.task].ko[s.cls]} · 물건 ${s.obj}<br>${s.set.slice(2)}</div></figure>`).join('');
+}
+$('#gal').onclick = e => { const b = e.target.closest('button[data-id]'); if (!b) return; const i = shots.findIndex(s => s.id == b.dataset.id); URL.revokeObjectURL(shots[i].url); shots.splice(i, 1); render(); counts(); };
+
+$('#zip').onclick = async () => {
+  if (!shots.length) return alert('찍은 사진이 없어요.');
+  const zip = new JSZip(); const n = {}; const rows = [['폴더', '파일', '모둠', '과제', '클래스', '묶음', '물건 번호']];
+  const stamp = new Date(); const tag = `${String(stamp.getMonth() + 1).padStart(2, '0')}${String(stamp.getDate()).padStart(2, '0')}`;
+  for (const s of shots) {
+    const m = APP.MODELS[s.task];
+    const folder = s.set === '1_학습용' ? `${m.dir}/${s.set}/${s.cls}` : `${m.dir}/${s.set}`;
+    const k = folder + s.cls; n[k] = (n[k] || 0) + 1;
+    const name = `${s.cls}_${tag}g${s.grp}o${String(s.obj).padStart(2, '0')}_${String(n[k]).padStart(3, '0')}.jpg`;
+    zip.file(`${folder}/${name}`, s.blob);
+    rows.push([folder, name, s.grp, m.name, s.cls, s.set, s.obj]);
+  }
+  zip.file('사진목록.csv', toCSV(rows));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  download(`사진모으기_${tag}_${$('#grp').value}모둠.zip`, blob);
+};
+window.onbeforeunload = e => { if (shots.length) { e.preventDefault(); e.returnValue = ''; } };
+</script>
+</body>
+</html>
