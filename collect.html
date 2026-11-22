@@ -34,6 +34,7 @@
   <div class="cam" style="margin-top:12px"><video id="video" playsinline muted></video><div class="guide" id="guide">검정 판 앞에서, 물건 전체가 화면 가운데에 크게 보이게!</div></div>
   <div class="row">
     <button class="btn primary" id="snap" style="font-size:22px">📸 찍기</button>
+    <button class="btn soft" id="timer" style="font-size:20px">⏱️ 3초 뒤 찍기</button>
     <button class="btn" id="nextObj">➕ 다음 물건</button>
     <button class="btn" id="zip">💾 ZIP으로 저장 (<span id="total">0</span>장)</button>
   </div>
@@ -50,7 +51,7 @@ const shots = []; // {id, grp, task, cls, set, obj, blob, url}
 $('#grp').innerHTML = [1,2,3,4,5,6].map(n => `<option value="${n}">${n}모둠</option>`).join('') + '<option value="T">선생님</option>';
 $('#task').innerHTML = Object.entries(APP.MODELS).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
 $('#obj').innerHTML = Array.from({ length: 30 }, (_, i) => `<option value="${i + 1}">물건 ${i + 1}</option>`).join('');
-function fillCls() { const m = APP.MODELS[$('#task').value]; $('#cls').innerHTML = m.classes.map(c => `<option value="${c}">${m.ko[c]} (${c})</option>`).join(''); counts(); }
+function fillCls() { $('#guide').textContent = $('#task').value === 'size' ? '✋ 한 손으로 종이 끝을 집고, 다른 손바닥을 종이 바로 뒤에 펴요(손가락 붙이기). 종이는 펴고, 손바닥 전체가 보이게!' : '검정 판 앞에서, 물건 전체가 화면 가운데에 크게 보이게!'; const m = APP.MODELS[$('#task').value]; $('#cls').innerHTML = m.classes.map(c => `<option value="${c}">${m.ko[c]} (${c})</option>`).join(''); counts(); }
 $('#task').onchange = fillCls; ['#cls', '#set', '#grp'].forEach(s => $(s).onchange = counts);
 fillCls();
 
@@ -75,6 +76,11 @@ $('#snap').onclick = () => {
     shots.push(s); render(); counts();
   }, 'image/jpeg', 0.9);
   video.style.opacity = .3; setTimeout(() => video.style.opacity = 1, 120);
+};
+$('#timer').onclick = () => {
+  let n = 3; const b = $('#timer'); b.disabled = true; b.textContent = `⏱️ ${n}…`;
+  const t = setInterval(() => { n--; if (n > 0) { b.textContent = `⏱️ ${n}…`; return; }
+    clearInterval(t); $('#snap').click(); b.disabled = false; b.textContent = '⏱️ 3초 뒤 찍기'; }, 1000);
 };
 $('#nextObj').onclick = () => { const o = $('#obj'); if (o.selectedIndex < o.options.length - 1) o.selectedIndex++; };
 function render() {

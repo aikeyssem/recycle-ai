@@ -8,65 +8,22 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><div class="logo">👩‍🏫</div><h1>감독기 교사용<small>모델 평가 · 감독 기록 · 상 후보</small></h1><span class="sp"></span><a class="btn ghost" href="index.html">학생 화면</a></div>
-  <div class="tabs" id="tabs">
-    <button data-t="eval" class="on">① 모델 평가</button>
-    <button data-t="log">② 감독 기록</button>
-    <button data-t="award">③ 상 후보</button>
-    <button data-t="judge">④ 선생님 판정</button>
-    <button data-t="backup">⑤ 백업</button>
-  </div>
-
+  <div class="top"><div class="logo">👩‍🏫</div><h1>감독기 교사용<small>모델 평가 · 혼동행렬 · 오답 모음</small></h1><span class="sp"></span><a class="btn ghost" href="index.html">학생 화면</a></div>
   <!-- ① 모델 평가 -->
-  <section class="screen on card" id="t-eval">
+  <section class="card" id="t-eval">
     <h2>고정 개발용 사진으로 모델 평가</h2>
     <p class="sub">파일 이름의 밑줄 앞부분이 실제 클래스예요 (예: <code>label_on_001.jpg</code> → label_on).</p>
     <label class="f">모델 <select id="evModel"></select></label>
     <label class="f">버전 <select id="evBase"><option value="models">지금 모델 (models)</option><option value="models_v0">금요일 모델 (models_v0)</option></select></label>
     <div class="row" style="margin-top:10px">
       <label class="btn primary" style="text-align:center">📂 사진 여러 장 고르기<input type="file" id="evFiles" accept="image/*" multiple hidden></label>
+      <label class="btn" style="text-align:center">📁 폴더 통째로 고르기 (안의 하위 폴더까지)<input type="file" id="evDir" webkitdirectory multiple hidden></label>
     </div>
     <div id="evStatus" class="note" style="margin-top:10px"></div>
     <div id="evOut"></div>
   </section>
 
-  <!-- ② 감독 기록 -->
-  <section class="screen card" id="t-log">
-    <h2>번호별 감독 기록</h2>
-    <div>
-      <label class="f">기간 <select id="lgRange"><option value="week">이번 주</option><option value="lastweek">지난주</option><option value="month">이번 달</option><option value="lastmonth">지난달</option><option value="all">전체</option><option value="custom">직접 고르기</option></select></label>
-      <span id="lgCustom" hidden><input type="date" id="lgFrom"> ~ <input type="date" id="lgTo"></span>
-    </div>
-    <div id="lgOut" style="margin-top:12px"></div>
-  </section>
-
-  <!-- ③ 상 후보 -->
-  <section class="screen card" id="t-award">
-    <h2>상 후보</h2>
-    <p class="sub">점수 규칙: 1분 안에 다시 한 것은 1회로 세고, 하루 5회까지만 점수에 넣어요. 선생님 판정을 기다리는 기록은 빼요. 정답은 "처음 신고가 한 번에 통과"한 경우예요.</p>
-    <div id="awOut"></div>
-  </section>
-
-  <!-- ④ 선생님 판정 -->
-  <section class="screen card" id="t-judge">
-    <h2>아이와 감독기의 의견이 다른 기록</h2>
-    <p class="sub">아이가 "나는 맞다고 생각해요"를 누른 기록이에요. 판정하면 점수에 반영돼요.</p>
-    <div id="jgOut"></div>
-  </section>
-
-  <!-- ⑤ 백업 -->
-  <section class="screen card" id="t-backup">
-    <h2>백업과 복원</h2>
-    <p class="sub">기록은 <b>이 기기의 이 브라우저에만</b> 저장돼요. 매주 금요일에 백업해 두세요. 브라우저 기록을 지우면 사라져요.</p>
-    <div class="row">
-      <button class="btn primary" id="bkCsv">감독 기록 CSV 저장 (엑셀용)</button>
-      <button class="btn" id="bkJson">전체 백업 파일 저장 (.json)</button>
-      <label class="btn" style="text-align:center">백업 파일로 복원<input type="file" id="bkLoad" accept=".json" hidden></label>
-    </div>
-    <p class="note" id="bkInfo"></p>
-    <hr style="margin:20px 0;border:0;border-top:1px solid var(--line)">
-    <button class="btn danger" id="bkClear">모든 기록 지우기</button>
-  </section>
+  <p class="note" style="margin-top:14px">🔒 이 화면은 고른 사진을 이 브라우저 안에서만 계산해요. 사진과 결과는 저장하거나 보내지 않아요. 필요하면 'CSV 저장'으로 선생님 컴퓨터에만 내려받아요.</p>
 </div>
 
 <script src="lib/tf.min.js"></script>
@@ -77,16 +34,10 @@ const $ = s => document.querySelector(s);
 const CHECK_KO = { emptied: '비우기', rinsed: '헹구기', label: '라벨 떼기', kind: '물건 종류', wipe: '휴지·물티슈 구분', size: '손바닥 크기', tape: '테이프 떼기', shaken: '부스러기 털기', box: '버릴 곳(섞지 않기)' };
 const ITEM_KO = { pet: '페트병', vinyl: '비닐·과자봉지', paper: '종이', wipe: '휴지·물티슈', other: '기타' };
 
-$('#tabs').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return;
-  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  document.querySelectorAll('section.screen').forEach(s => s.classList.toggle('on', s.id === 't-' + b.dataset.t));
-  ({ log: renderLog, award: renderAward, judge: renderJudge, backup: renderBackup })[b.dataset.t]?.();
-};
-
 // ================= ① 모델 평가 =================
 $('#evModel').innerHTML = Object.entries(APP.MODELS).map(([k, m]) => `<option value="${k}">${m.name} (${m.classes.join(' / ')})</option>`).join('');
 let lastEval = null;
+$('#evDir').onchange = e => $('#evFiles').onchange(e);
 $('#evFiles').onchange = async e => {
   const files = [...e.target.files].filter(f => /\.(jpe?g|png|webp)$/i.test(f.name)).sort((a, b) => a.name.localeCompare(b.name));
   e.target.value = '';
@@ -146,124 +97,6 @@ function renderEval() {
     toCSV([['파일', '실제', '판단', '확률', '맞음', '확신70%이상'], ...rows.map(r => [r.file, r.truth, r.pred, r.prob.toFixed(3), r.pred === r.truth ? 'O' : 'X', r.sure ? 'O' : 'X'])]));
 }
 
-// ================= ② 감독 기록 =================
-function range() {
-  const now = Date.now(), v = $('#lgRange').value;
-  $('#lgCustom').hidden = v !== 'custom';
-  if (v === 'week') return [weekStart(now), Infinity, '이번 주'];
-  if (v === 'lastweek') { const w = weekStart(now); return [w - 7 * 864e5, w, '지난주']; }
-  if (v === 'month') return [monthStart(now), Infinity, '이번 달'];
-  if (v === 'lastmonth') return [monthStart(now, -1), monthStart(now), '지난달'];
-  if (v === 'custom') {
-    const f = $('#lgFrom').value ? new Date($('#lgFrom').value + 'T00:00').getTime() : 0;
-    const t = $('#lgTo').value ? new Date($('#lgTo').value + 'T00:00').getTime() + 864e5 : Infinity;
-    return [f, t, '선택 기간']; }
-  return [0, Infinity, '전체'];
-}
-['#lgRange', '#lgFrom', '#lgTo'].forEach(s => $(s).onchange = renderLog);
-function renderLog() {
-  const [from, to, name] = range();
-  const recs = scoreRecords(Store.load());
-  const inR = recs.filter(r => r.ts >= from && r.ts < to);
-  const sum = summarize(recs, from, to);
-  const counted = inR.filter(r => r._counted), pass = counted.filter(r => r._firstPass);
-  // 가장 많이 걸린 점검 (첫 시도 기준)
-  const fail = {}, seen = {};
-  for (const r of inR) { const a = r.attempts[0]; if (!a) continue;
-    for (const c of a.checks) { seen[c.key] = (seen[c.key] || 0) + 1; if (c.status === 'warn') fail[c.key] = (fail[c.key] || 0) + 1; } }
-  const failRows = Object.keys(seen).map(k => [k, fail[k] || 0, seen[k]]).sort((a, b) => b[1] / b[2] - a[1] / a[2]);
-  const items = {}; inR.forEach(r => items[r.item] = (items[r.item] || 0) + 1);
-  let h = `<p><b>${name}</b> · 사용 ${inR.length}회 · 점수에 들어간 ${counted.length}회 · <b>학급 한 번에 통과율 ${pct(counted.length ? pass.length / counted.length : null)}</b> (목표 ${APP.CLASS_GOAL * 100}%)</p>`;
-  h += `<p class="note">물건별 사용: ${Object.entries(items).map(([k, v]) => `${ITEM_KO[k]} ${v}회`).join(' · ') || '없음'}</p>`;
-  h += `<h3>학급 습관: 첫 시도에서 가장 많이 걸린 점검</h3><table><tr><th>점검</th><th>걸린 횟수</th><th>점검한 횟수</th><th>걸린 비율</th></tr>` +
-    failRows.map(([k, f, s]) => `<tr><td>${CHECK_KO[k] || k}</td><td>${f}</td><td>${s}</td><td>${pct(f / s)}</td></tr>`).join('') + '</table>';
-  h += `<h3>번호별</h3><table><tr><th>번호</th><th>사용</th><th>점수에 들어간</th><th>한 번에 통과</th><th>통과율</th><th>사용한 날</th></tr>` +
-    sum.map(s => `<tr><td><b>${s.num}</b></td><td>${s.uses}</td><td>${s.counted}</td><td>${s.pass}</td><td>${pct(s.rate)}</td><td>${s.days}</td></tr>`).join('') + '</table>';
-  $('#lgOut').innerHTML = h;
-}
-
-// ================= ③ 상 후보 =================
-function renderAward() {
-  const now = Date.now(), recs = scoreRecords(Store.load());
-  const wk = summarize(recs, weekStart(now), Infinity);
-  const lastWk = summarize(recs, weekStart(now) - 7 * 864e5, weekStart(now));
-  const mo = summarize(recs, monthStart(now), Infinity);
-  const lastMo = summarize(recs, monthStart(now, -1), monthStart(now));
-  const king = (list) => list.filter(s => s.counted >= APP.MIN_WEEKLY_FOR_RANK).sort((a, b) => b.rate - a.rate || b.counted - a.counted).slice(0, 5);
-  const tbl = (rows, cols) => rows.length ? `<table><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr>${rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</table>` : '<p class="note">아직 조건을 채운 친구가 없어요.</p>';
-  const growth = mo.map((s, i) => ({ ...s, prev: lastMo[i].rate, prevN: lastMo[i].counted }))
-    .filter(s => s.counted >= APP.MIN_WEEKLY_FOR_RANK && s.prevN >= APP.MIN_WEEKLY_FOR_RANK)
-    .map(s => ({ ...s, diff: s.rate - s.prev })).sort((a, b) => b.diff - a.diff).slice(0, 5);
-  const steady = [...mo].filter(s => s.days > 0).sort((a, b) => b.days - a.days || b.uses - a.uses).slice(0, 5);
-  const moAll = recs.filter(r => r.ts >= monthStart(now) && r._counted);
-  const classRate = moAll.length ? moAll.filter(r => r._firstPass).length / moAll.length : null;
-  $('#awOut').innerHTML = `
-    <h3>🏆 감독 통과왕: 이번 주 (점수에 들어간 사용 ${APP.MIN_WEEKLY_FOR_RANK}회 이상)</h3>
-    ${tbl(king(wk), [['순위', (r) => king(wk).indexOf(r) + 1], ['번호', r => `<b>${r.num}</b>`], ['통과율', r => pct(r.rate)], ['한 번에 통과 / 점수 사용', r => `${r.pass} / ${r.counted}`]])}
-    <h3>🏆 지난주 감독 통과왕 (월요일에 발표할 때)</h3>
-    ${tbl(king(lastWk), [['순위', (r) => king(lastWk).indexOf(r) + 1], ['번호', r => `<b>${r.num}</b>`], ['통과율', r => pct(r.rate)], ['한 번에 통과 / 점수 사용', r => `${r.pass} / ${r.counted}`]])}
-    <h3>🌱 성장상: 이번 달 (지난달보다 통과율이 가장 많이 오른 친구)</h3>
-    ${tbl(growth, [['번호', r => `<b>${r.num}</b>`], ['지난달', r => pct(r.prev)], ['이번 달', r => pct(r.rate)], ['오른 폭', r => (r.diff >= 0 ? '+' : '') + Math.round(r.diff * 100) + '%p']])}
-    <h3>📅 꾸준상: 이번 달 (감독기를 쓴 날이 가장 많은 친구)</h3>
-    ${tbl(steady, [['번호', r => `<b>${r.num}</b>`], ['사용한 날', r => r.days + '일'], ['사용 횟수', r => r.uses]])}
-    <h3>🏫 우리 반 목표: 이번 달 학급 한 번에 통과율</h3>
-    <p style="font-size:26px;font-weight:900">${pct(classRate)} ${classRate != null && classRate >= APP.CLASS_GOAL ? '🎉 목표 달성!' : `(목표 ${APP.CLASS_GOAL * 100}%)`}</p>`;
-}
-
-// ================= ④ 선생님 판정 =================
-function renderJudge() {
-  const list = Store.load().filter(r => r.disputed).sort((a, b) => (a.verdict ? 1 : 0) - (b.verdict ? 1 : 0) || b.ts - a.ts);
-  if (!list.length) { $('#jgOut').innerHTML = '<p class="note">판정할 기록이 없어요.</p>'; return; }
-  $('#jgOut').innerHTML = list.map(r => {
-    const a = r.attempts.at(-1) || {};
-    const ai = Object.entries(a.ai || {}).map(([k, v]) => `${APP.MODELS[k].name}: ${APP.MODELS[k].ko[v.label] || v.label} ${pct(v.prob)}`).join('<br>');
-    const warns = (a.checks || []).filter(c => c.status !== 'ok' && c.status !== 'self').map(c => CHECK_KO[c.key] || c.key).join(', ');
-    return `<div class="card" style="margin-bottom:10px;border:2px solid ${r.verdict ? 'var(--line)' : '#fcd34d'}">
-      <b>${r.num}번</b> · ${fmtTime(r.ts)} · ${ITEM_KO[r.item]} · 아이가 고른 곳: ${a.box || ''} · 문제된 점검: <b>${warns || '-'}</b>
-      <div class="thumbs">${Object.values(r.disputeThumbs || {}).map(s => `<img src="${s}">`).join('')}</div>
-      <p class="note">${ai}<br>아이의 신고: ${JSON.stringify(a.claims || {})}</p>
-      ${r.verdict ? `<p>판정: <b>${r.verdict === 'child' ? '아이가 맞음 (감독기 오류)' : '감독기가 맞음'}</b> <button class="btn ghost" data-id="${r.id}" data-v="">판정 취소</button></p>`
-        : `<div class="row"><button class="btn primary" data-id="${r.id}" data-v="child">아이가 맞아요 (감독기 오류)</button><button class="btn" data-id="${r.id}" data-v="ai">감독기가 맞아요</button></div>`}
-    </div>`; }).join('');
-}
-$('#jgOut').onclick = e => {
-  const b = e.target.closest('button[data-id]'); if (!b) return;
-  const list = Store.load(); const r = list.find(x => x.id === b.dataset.id);
-  r.verdict = b.dataset.v || null; Store.save(list); renderJudge();
-};
-
-// ================= ⑤ 백업 =================
-function renderBackup() {
-  const l = Store.load();
-  const bytes = (localStorage.getItem(APP.STORAGE_KEY) || '').length;
-  $('#bkInfo').textContent = `저장된 기록 ${l.length}개 · 약 ${Math.round(bytes / 1024)}KB`;
-}
-$('#bkCsv').onclick = () => {
-  const recs = scoreRecords(Store.load());
-  const rows = [['날짜시간', '번호', '물건', '시도 횟수', '한 번에 통과', '최종 통과', '점수 포함', '점수 제외 이유', '이의 제기', '선생님 판정', '첫 시도: 고른 곳', '첫 시도: 정답 곳', '첫 시도: 걸린 점검', '첫 시도: AI 판단', '첫 시도: 아이 신고']];
-  for (const r of recs) { const a = r.attempts[0] || {};
-    rows.push([fmtTime(r.ts), r.num, ITEM_KO[r.item] || '', r.attempts.length, r.firstPass ? 'O' : 'X', r.completed ? 'O' : 'X', r._counted ? 'O' : 'X', r._why, r.disputed ? 'O' : '',
-      r.verdict === 'child' ? '아이가 맞음' : r.verdict === 'ai' ? '감독기가 맞음' : '', a.box || '', a.expected || '',
-      (a.checks || []).filter(c => c.status === 'warn').map(c => CHECK_KO[c.key]).join(' / '),
-      Object.entries(a.ai || {}).map(([k, v]) => `${k}:${v.label} ${v.prob}`).join(' / '), JSON.stringify(a.claims || {})]); }
-  download(`감독기록_${dayKey(Date.now())}.csv`, toCSV(rows));
-};
-$('#bkJson').onclick = () => download(`감독기록_백업_${dayKey(Date.now())}.json`, JSON.stringify(Store.load()), 'application/json');
-$('#bkLoad').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try {
-    const add = JSON.parse(await f.text()); if (!Array.isArray(add)) throw 0;
-    const cur = Store.load(); const ids = new Set(cur.map(r => r.id));
-    const merged = cur.concat(add.filter(r => !ids.has(r.id)));
-    if (Store.save(merged)) alert(`복원했어요. 새로 추가된 기록 ${merged.length - cur.length}개`);
-    renderBackup();
-  } catch (err) { alert('백업 파일을 읽지 못했어요.'); }
-};
-$('#bkClear').onclick = () => {
-  if (!confirm('모든 감독 기록을 지울까요? 먼저 백업했는지 확인하세요.')) return;
-  if (prompt('정말 지우려면 "지우기"라고 입력하세요.') !== '지우기') return;
-  Store.save([]); renderBackup(); alert('지웠어요.');
-};
 </script>
 </body>
 </html>
